@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Labirinto a Livelli</title>
+  <style>
+    body {
+      background: #222;
+      color: white;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 20px;
+    }
+
+    #info { display: flex; gap: 20px; font-size: 18px; }
+    #labirinto { display: grid; gap: 2px; margin-top: 10px; }
+
+    .cella {
+      width: 30px; height: 30px;
+      background: #eee;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .wall { background: #444; }
+    .goal { background: lightgreen; }
+    .player { font-size: 20px; }
+  </style>
+</head>
+<body>
+
+  <h1>🧩 Labirinto a Livelli</h1>
+  <div id="info">
+    <div id="livello">Livello: 1</div>
+    <div id="timer">Tempo: 0s</div>
+  </div>
+  <div id="labirinto"></div>
+
+  <script>
+    let livello = 1;
+    let dimensione = 5;
+    let labirinto, x = 0, y = 0;
+    const direzioni = [[0,-1], [1,0], [0,1], [-1,0]];
+    const mazeDiv = document.getElementById("labirinto");
+    let inizio, intervallo;
+
+    function mescola(array) {
+      return array.sort(() => Math.random() - 0.5);
+    }
+
+    function generaLabirinto(dim) {
+      const grid = Array.from({ length: dim }, () => Array(dim).fill(1));
+
+      function scava(cx, cy) {
+        grid[cy][cx] = 0;
+        for (const [dx, dy] of mescola(direzioni)) {
+          const nx = cx + dx * 2, ny = cy + dy * 2;
+          if (nx >= 0 && ny >= 0 && nx < dim && ny < dim && grid[ny][nx] === 1) {
+            grid[cy + dy][cx + dx] = 0;
+            scava(nx, ny);
+          }
+        }
+      }
+
+      scava(0, 0);
+      return grid;
+    }
+
+    function èRaggiungibile(mappa) {
+      const visitato = Array.from({ length: dimensione }, () => Array(dimensione).fill(false));
+      const coda = [[0, 0]];
+      visitato[0][0] = true;
+
+      while (coda.length) {
+        const [cx, cy] = coda.shift();
+        if (cx === dimensione - 1 && cy === dimensione - 1) return true;
+
+        for (const [dx, dy] of direzioni) {
+          const nx = cx + dx, ny = cy + dy;
+          if (nx >= 0 && ny >= 0 && nx < dimensione && ny < dimensione &&
+              mappa[ny][nx] === 0 && !visitato[ny][nx]) {
+            visitato[ny][nx] = true;
+            coda.push([nx, ny]);
+          }
+        }
+      }
+
+      return false;
+    }
+
+    function disegna() {
+      mazeDiv.innerHTML = "";
+      mazeDiv.style.gridTemplate = `repeat(${dimensione}, 30px) / repeat(${dimensione}, 30px)`;
+
+      for (let r = 0; r < dimensione; r++) {
+        for (let c = 0; c < dimensione; c++) {
+          const cella = document.createElement("div");
+          cella.className = "cella" + (labirinto[r][c] ? " wall" : "");
+          if (c === dimensione - 1 && r === dimensione - 1) cella.classList.add("goal");
+          if (c === x && r === y) {
+            const player = document.createElement("div");
+            player.className = "player";
+            player.textContent = "🧍";
+            cella.appendChild(player);
+          }
+          mazeDiv.appendChild(cella);
+        }
+      }
+    }
+
+    function muovi(dx, dy) {
+      const nx = x + dx, ny = y + dy;
+      if (labirinto[ny]?.[nx] === 0) {
+        x = nx; y = ny;
+        disegna();
+
+        if (x === dimensione - 1 && y === dimensione - 1) {
+          setTimeout(() => {
+            clearInterval(intervallo);
+            const tempo = Math.floor((Date.now() - inizio) / 1000);
+            alert(`Livello ${livello} completato in ${tempo} secondi! 🎉`);
+            prossimoLivello();
+          }, 100);
+        }
+      }
+    }
+
+    function prossimoLivello() {
+      livello++;
+      dimensione = Math.min(dimensione + 2, 25);
+      avviaLivello();
+    }
+
+    function avviaLivello() {
+      do {
+        labirinto = generaLabirinto(dimensione);
+      } while (!èRaggiungibile(labirinto));
+
+      x = y = 0;
+      document.getElementById("livello").textContent = `Livello: ${livello}`;
+
+      clearInterval(intervallo);
+      inizio = Date.now();
+      intervallo = setInterval(() => {
+        const secondi = Math.floor((Date.now() - inizio) / 1000);
+        document.getElementById("timer").textContent = `Tempo: ${secondi}s`;
+      }, 1000);
+
+      disegna();
+    }
+
+    document.addEventListener("keydown", e => {
+      const tasti = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+      if (tasti[e.key]) muovi(...tasti[e.key]);
+    });
+
+    avviaLivello();
+  </script>
+</body>
+</html>
